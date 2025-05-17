@@ -1,0 +1,64 @@
+# YAML configuration for Python's logging module
+
+version: 1  # Specifies the schema version for the configuration
+disable_existing_loggers: False # Set to True to disable any loggers configured before this config is loaded
+
+# --- FORMATTERS ---
+# Define how log messages will be formatted
+formatters:
+  simpleFormatter: # A basic formatter
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S' # Date format for the log messages
+
+  detailedFormatter: # A more detailed formatter, perhaps for file logs
+    format: '%(asctime)s - %(name)s - %(module)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+# --- HANDLERS ---
+# Define where log messages are sent (e.g., console, file)
+handlers:
+  consoleHandler: # Outputs logs to the console (standard output)
+    class: logging.StreamHandler
+    level: INFO # Minimum severity level for messages to be handled by this handler
+    formatter: simpleFormatter # Use the simple formatter defined above
+    stream: ext://sys.stdout # Send output to standard out
+
+  fileHandler: # Outputs logs to a rotating file
+    class: logging.handlers.RotatingFileHandler
+    level: INFO # Minimum severity level for messages to be handled by this handler
+    formatter: detailedFormatter # Use the detailed formatter for file logs
+    filename: logs/etl_pipeline.log # Path to the log file (ensure the 'logs' directory exists)
+    maxBytes: 10485760 # 10MB - Maximum size of a log file before it's rotated
+    backupCount: 5 # Number of backup log files to keep
+    encoding: utf8 # Encoding for the log file
+
+  performanceFileHandler: # Specific handler for performance logs
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: simpleFormatter # Or a custom performance formatter if needed
+    filename: logs/etl_performance.log
+    maxBytes: 5242880 # 5MB
+    backupCount: 3
+    encoding: utf8
+
+# --- LOGGERS ---
+# Define specific loggers for different parts of your application
+loggers:
+  financial_etl_pipeline: # Logger for your main ETL pipeline application
+    level: INFO # Minimum severity level for messages to be processed by this logger
+    handlers: [consoleHandler, fileHandler] # Use both console and file handlers
+    propagate: no # Prevent messages from being passed to the handlers of ancestor loggers (e.g., root)
+
+  performance_logger: # Logger specifically for performance metrics
+    level: INFO
+    handlers: [performanceFileHandler] # Only use the performance file handler
+    propagate: no
+
+# --- ROOT LOGGER ---
+# The default logger; if a message is not handled by a specific logger,
+# it propagates up to the root logger.
+root:
+  level: WARNING # Default logging level for the entire application if not specified otherwise
+  handlers: [consoleHandler] # By default, send root logs to the console
+  # If you want root logs also in a file, you can add fileHandler here,
+  # but be mindful of duplicate logging if `propagate` is True on other loggers.
