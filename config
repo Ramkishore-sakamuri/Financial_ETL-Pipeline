@@ -1,1 +1,198 @@
+# financial_etl_pipeline/config/pipeline_config.yaml
 
+# General Pipeline Settings
+pipeline_name: "financial_transactions_etl"
+pipeline_version: "1.0.0"
+environment: "development" # development, staging, production
+
+# --- Extraction Settings ---
+extraction:
+  source_type: "file" # Options: "file", "api", "database"
+
+  file_source:
+    enabled: true # Set to false if not using file source
+    input_directory: "data/input/"
+    processed_directory: "data/archive/" # Optional: Directory to move files after processing
+    file_pattern: "*.csv" # e.g., "transactions_*.csv", "*.json", "*.parquet"
+    file_format: "csv" # Options: "csv", "json", "parquet", "xml"
+    csv_options: # Specific to CSV
+      delimiter: ","
+      header: true
+      encoding: "utf-8"
+    # Add similar options for json_options, parquet_options if needed
+
+  api_source:
+    enabled: false # Set to true if using API source
+    base_url: "https://api.examplefinancial.com/v1/"
+    endpoint: "transactions"
+    auth_type: "oauth2" # "apikey", "basic", "oauth2"
+    api_key_env: "FINANCIAL_API_KEY" # Environment variable name for API key
+    # For OAuth2, you might need client_id, client_secret, token_url etc.
+    # Store sensitive values in environment variables or a secure vault
+    # client_id_env: "FINANCIAL_API_CLIENT_ID"
+    # client_secret_env: "FINANCIAL_API_CLIENT_SECRET"
+    parameters: # Query parameters for the API request
+      start_date_param: "transaction_date_from"
+      end_date_param: "transaction_date_to"
+      # Lookback_days determines how far back to fetch data for incremental loads
+      # If 0, it might imply a full load or relying on a watermark file.
+      lookback_days: 7 # For incremental loads, fetch data from the last 7 days
+    pagination: # Example pagination settings
+      type: "page_number" # "page_number", "offset_limit", "next_url"
+      page_size_param: "per_page"
+      page_size: 100
+      max_pages: 0 # 0 for no limit (fetch all pages)
+    rate_limit_delay_seconds: 1 # Delay between requests to respect rate limits
+
+  database_source:
+    enabled: false # Set to true if using database source
+    db_type: "postgresql" # "postgresql", "mysql", "sqlserver", "oracle"
+    # Connection details should ideally be sourced from environment variables or a secrets manager
+    host_env: "SOURCE_DB_HOST"
+    port_env: "SOURCE_DB_PORT"
+    database_env: "SOURCE_DB_NAME"
+    user_env: "SOURCE_DB_USER"
+    password_env: "SOURCE_DB_PASSWORD"
+    schema: "public"
+    table_name: "raw_transactions"
+    # For incremental loads:
+    # Watermark column is a timestamp or an auto-incrementing ID in the source table
+    # used to determine new records since the last ETL run.
+    watermark_column: "created_at" # Column used for incremental extraction (e.g., timestamp, id)
+    # query: "SELECT id, transaction_id, amount, currency, transaction_date, customer_id, merchant_id FROM raw_transactions WHERE created_at > :last_watermark ORDER BY created_at"
+    # If query is specified, table_name and watermark_column might be used within the query.
+    # It's often better to construct the query dynamically in the extractor script based on these configs.
+    fetch_size: 10000 # Number of records to fetch at a time
+
+# --- Transformation Settings ---
+transformation:
+  # Example: Define expected columns and their types for validation
+  # This can be more detailed, e.g., using a JSON schema file
+  schema_validation:
+    enabled: true
+    # schema_file: "config/transaction_schema.json" # Optional: path to a more detailed schema
+    expected_columns: # Basic validation if schema_file is not used
+      - name: "transaction_id"
+        type: "string"
+        required: true
+      - name: "amount"
+        type: "float"
+        required: true
+      - name: "currency"
+        type: "string"
+        required: true
+      - name: "transaction_date"
+        type: "datetime"
+        datetime_format: "%Y-%m-%d %H:%M:%S" # Example format
+        required: true
+      - name: "customer_id"
+        type: "string"
+        required: true
+      - name: "merchant_name"
+        type: "string"
+        required: false
+
+  # Data cleaning specific parameters
+  cleaning_rules:
+    handle_missing_values:
+      default_strategy: "drop_row" # "drop_row", "fill_mean", "fill_median", "fill_mode", "fill_constant"
+      column_strategies: # Override default strategy for specific columns
+        merchant_name: "fill_constant"
+        merchant_name_fill_value: "Unknown Merchant"
+    normalize_text_fields: ["merchant_name", "description"] # Columns to apply text normalization (e.g., lowercase, strip whitespace)
+    remove_duplicates: true # Based on all columns or specify a subset in the transformer
+
+  # Business transformation parameters
+  business_logic:
+    add_calculated_fields:
+      - name: "is_high_value"
+        condition_column: "amount"
+        condition_threshold: 10000.00 # Transactions above this are considered high value
+    # Example: Currency conversion (if applicable, actual rates would come from another source)
+    # currency_conversion:
+    #   target_currency: "USD"
+    #   exchange_rate_api: "https://api.exchangeratesapi.io/latest" # Placeholder
+
+  # Output format for transformed data before loading (if staging is used)
+  staging_format: "parquet" # "parquet", "avro", "csv"
+  staging_directory: "data/staging/"
+
+  # Parallel processing settings for transformation
+  parallel_processing:
+    enabled: true
+    # Number of worker processes. 'auto' could mean using os.cpu_count().
+    # Be mindful of memory constraints when setting this.
+    num_workers: "auto" # or a specific number e.g., 4
+
+# --- Load Settings ---
+loading:
+  destination_type: "database" # "database", "file_system", "data_lake_s3", "bigquery", "snowflake"
+
+  database_destination:
+    enabled: true # Set to false if not loading to a database
+    db_type: "postgresql" # "postgresql", "mysql", "sqlserver", "oracle", "redshift"
+    # Connection details from environment variables or secrets manager
+    host_env: "TARGET_DB_HOST"
+    port_env: "TARGET_DB_PORT"
+    database_env: "TARGET_DB_NAME"
+    user_env: "TARGET_DB_USER"
+    password_env: "TARGET_DB_PASSWORD"
+    schema: "analytics"
+    target_table: "fact_transactions"
+    load_method: "bulk" # "bulk", "insert", "upsert" (merge)
+    # For upsert/merge, define conflict target/unique keys
+    # conflict_target_columns: ["transaction_id"]
+    batch_size: 10000 # For non-bulk insert methods or if bulk utility chunks inserts
+    # Options for bulk loading specific to the database (e.g., COPY command options for PostgreSQL)
+    # postgresql_copy_options: "FORMAT CSV, HEADER true"
+    pre_load_sql: # SQL to run before loading (e.g., truncate staging table, disable indexes)
+      # - "TRUNCATE TABLE staging.transactions;"
+      # - "ALTER TABLE analytics.fact_transactions DISABLE TRIGGER ALL;"
+    post_load_sql: # SQL to run after loading (e.g., rebuild indexes, update metadata)
+      # - "CALL analytics.update_transaction_summary();"
+      # - "ALTER TABLE analytics.fact_transactions ENABLE TRIGGER ALL;"
+      # - "VACUUM ANALYZE analytics.fact_transactions;"
+
+  file_system_destination:
+    enabled: false
+    output_directory: "data/processed/"
+    file_format: "parquet" # "parquet", "csv", "json"
+    # Options for partitioning output files
+    partition_by: ["year", "month"] # Columns to partition data by in the output directory
+    # Example: data/processed/year=2024/month=01/data.parquet
+    compression: "snappy" # For Parquet: "snappy", "gzip", "brotli", None
+
+  # Example for a data lake like S3 (placeholders)
+  # data_lake_s3_destination:
+  #   enabled: false
+  #   bucket_name_env: "S3_BUCKET_NAME"
+  #   path_prefix: "financial_data/transactions/"
+  #   file_format: "parquet"
+  #   partition_by: ["transaction_year", "transaction_month"]
+  #   aws_region_env: "AWS_REGION"
+  #   # For credentials, best practice is to use IAM roles for EC2/ECS or environment variables for local dev.
+  #   # aws_access_key_id_env: "AWS_ACCESS_KEY_ID"
+  #   # aws_secret_access_key_env: "AWS_SECRET_ACCESS_KEY"
+
+# --- Performance & Operational Settings ---
+performance:
+  # Batch size for processing records in memory during transformation (if applicable)
+  processing_batch_size: 50000
+  # Controls whether to use incremental logic based on watermarks
+  # The actual watermark value (e.g., last processed timestamp/ID)
+  # would be stored externally (e.g., a file, a database table).
+  use_watermarking: true
+  watermark_storage_type: "file" # "file", "database"
+  watermark_file_path: "config/last_watermark.txt"
+  # If database:
+  # watermark_db_table: "etl_watermarks"
+  # watermark_pipeline_name: "financial_transactions" # To identify the watermark for this pipeline
+
+logging:
+  # Log level for the application. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  # This might be overridden by logging_config.yaml for more granular control.
+  level: "INFO"
+  log_file_path: "logs/etl_pipeline.log" # Path to the main log file
+  # Max size of log file before rotation
+  log_rotation_max_bytes: 10485760 # 10MB
+  log_rotation_backup_count: 5
