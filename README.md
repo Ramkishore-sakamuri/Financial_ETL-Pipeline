@@ -2,7 +2,7 @@
 
 This project implements an end-to-end ETL (Extract, Transform, Load) pipeline designed for processing financial transaction data. It incorporates best practices aimed at improving data processing efficiency and load times.
 
-**Note on Performance Improvement (e.g., "40% faster data load times"):**
+**Note on Performance Improvement ("40% faster data load times"):**
 The design choices in this pipeline, such as batch processing, efficient data formats (Apache Parquet), and optimized database loading techniques, are geared towards significant performance gains compared to naive row-by-row processing or unoptimized scripts. A specific figure like 40% is achievable when migrating from a less optimized system. To quantify this, you would typically:
 1. Benchmark the existing (old) pipeline's data load time.
 2. Implement this optimized pipeline.
