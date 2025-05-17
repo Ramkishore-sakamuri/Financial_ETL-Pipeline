@@ -1,0 +1,42 @@
+2025-05-17 10:30:00 - financial_etl_pipeline - main - <module> - 150 - INFO - Logging configured successfully from YAML file.
+2025-05-17 10:30:00 - financial_etl_pipeline - main - main_etl_flow - 200 - INFO - Starting ETL Run ID: etl_financial_20250517103000_abc123xyz
+2025-05-17 10:30:00 - financial_etl_pipeline - main - main_etl_flow - 205 - INFO - --- Starting Extraction Phase ---
+2025-05-17 10:30:00 - src.extract.file_extractor - FileExtractor - __init__ - 25 - INFO - FileExtractor initialized for file: data/input/sample_transactions.csv (type: csv)
+2025-05-17 10:30:00 - src.extract.file_extractor - FileExtractor - extract_data - 40 - INFO - Attempting to extract data from data/input/sample_transactions.csv as csv
+2025-05-17 10:30:00 - src.extract.file_extractor - FileExtractor - _extract_csv - 65 - INFO - Reading entire CSV file: data/input/sample_transactions.csv
+2025-05-17 10:30:01 - src.extract.file_extractor - FileExtractor - _extract_csv - 67 - INFO - Successfully extracted 30 rows from CSV: data/input/sample_transactions.csv
+2025-05-17 10:30:01 - financial_etl_pipeline - main - main_etl_flow - 210 - INFO - Extraction complete. 30 records extracted.
+2025-05-17 10:30:01 - financial_etl_pipeline - main - main_etl_flow - 215 - INFO - --- Starting Transformation Phase ---
+2025-05-17 10:30:01 - src.transform.data_cleaner - DataCleaner - __init__ - 19 - INFO - DataCleaner initialized with DataFrame of shape (30, 10)
+2025-05-17 10:30:01 - src.transform.data_cleaner - DataCleaner - handle_missing_values - 37 - INFO - Handling missing values with strategy: 'fill'
+2025-05-17 10:30:01 - src.transform.data_cleaner - DataCleaner - handle_missing_values - 55 - INFO - Filled missing values with 'UNKNOWN' in columns: ['Category', 'Description']. Current shape: (30, 10)
+2025-05-17 10:30:01 - src.transform.data_cleaner - DataCleaner - convert_data_types - 70 - INFO - Converting data types for columns: ['Amount']
+2025-05-17 10:30:01 - src.transform.data_cleaner - DataCleaner - convert_data_types - 78 - INFO - Converted column 'Amount' to type 'float64'.
+2025-05-17 10:30:02 - src.transform.transaction_transformer - TransactionTransformer - __init__ - 20 - INFO - TransactionTransformer initialized with DataFrame of shape (30, 10)
+2025-05-17 10:30:02 - src.transform.transaction_transformer - TransactionTransformer - create_transaction_timestamp - 35 - INFO - Creating timestamp column 'TransactionTimestamp' from 'TransactionDate' and 'TransactionTime'.
+2025-05-17 10:30:02 - src.transform.transaction_transformer - TransactionTransformer - create_transaction_timestamp - 50 - INFO - Successfully created 'TransactionTimestamp'.
+2025-05-17 10:30:02 - src.transform.transaction_transformer - TransactionTransformer - normalize_currency - 65 - INFO - Normalizing currency in 'Amount' (original currency in 'Currency') to 'USD'.
+2025-05-17 10:30:02 - src.transform.transaction_transformer - TransactionTransformer - normalize_currency - 85 - INFO - Applied exchange rates to create 'NormalizedAmountUSD'.
+2025-05-17 10:30:02 - src.transform.transaction_transformer - TransactionTransformer - normalize_currency - 92 - INFO - Created 'IsInternational' flag.
+2025-05-17 10:30:03 - src.transform.schema_mapper - SchemaMapper - __init__ - 25 - INFO - SchemaMapper initialized with target schema for 10 columns.
+2025-05-17 10:30:03 - src.transform.schema_mapper - SchemaMapper - map_df - 40 - INFO - Starting schema mapping for DataFrame with shape (30, 13).
+2025-05-17 10:30:03 - src.transform.schema_mapper - SchemaMapper - map_df - 75 - WARNING - Source column 'LegacyNotes' for target 'TransactionNotes' not found in input DataFrame. Creating empty column.
+2025-05-17 10:30:03 - src.transform.schema_mapper - SchemaMapper - map_df - 85 - INFO - Schema mapping complete. Output DataFrame shape: (30, 10), Columns: ['TxnID', 'Timestamp', ..., 'TransactionNotes']
+2025-05-17 10:30:03 - financial_etl_pipeline - main - main_etl_flow - 220 - INFO - Transformation complete.
+2025-05-17 10:30:03 - financial_etl_pipeline - main - main_etl_flow - 225 - INFO - --- Starting Load Phase ---
+2025-05-17 10:30:03 - src.load.db_loader - DbLoader - __init__ - 20 - INFO - DbLoader initialized for database type: sqlite
+2025-05-17 10:30:03 - src.load.db_loader - DbLoader - connect - 55 - INFO - Successfully created SQLAlchemy engine and tested connection for sqlite.
+2025-05-17 10:30:04 - src.load.db_loader - DbLoader - load_data - 85 - INFO - Attempting to load 30 rows into table 'fact_transactions' with if_exists='append'.
+2025-05-17 10:30:04 - src.load.db_loader - DbLoader - load_data - 95 - INFO - Successfully loaded data into table 'fact_transactions'.
+2025-05-17 10:30:04 - src.load.db_loader - DbLoader - execute_post_load_sql - 120 - INFO - Executing post-load SQL (1/1): CREATE INDEX IF NOT EXISTS idx_timestamp ON fact_transactions(Timestamp);...
+2025-05-17 10:30:04 - src.load.db_loader - DbLoader - execute_post_load_sql - 130 - INFO - Successfully executed all post-load SQL statements.
+2025-05-17 10:30:04 - src.load.db_loader - DbLoader - close - 150 - INFO - SQLAlchemy engine for sqlite disposed.
+2025-05-17 10:30:04 - src.load.db_loader - DbLoader - close - 155 - INFO - Raw DBAPI connection for sqlite closed.
+2025-05-17 10:30:04 - financial_etl_pipeline - main - main_etl_flow - 230 - INFO - Load phase complete.
+2025-05-17 10:30:05 - financial_etl_pipeline - main - main_etl_flow - 235 - INFO - ETL Run ID: etl_financial_20250517103000_abc123xyz completed successfully.
+2025-05-17 10:35:00 - src.extract.api_extractor - ApiExtractor - _make_request - 70 - ERROR - HTTP error during GET request to https://api.example.com/v1/failed_endpoint: 500 - {"error": "Internal Server Error"}
+2025-05-17 10:35:00 - src.extract.api_extractor - ApiExtractor - _make_request - 73 - WARNING - Server error (500). Retrying after 5 seconds...
+2025-05-17 10:35:05 - src.extract.api_extractor - ApiExtractor - _make_request - 70 - ERROR - HTTP error during GET request to https://api.example.com/v1/failed_endpoint: 500 - {"error": "Internal Server Error"}
+2025-05-17 10:35:05 - src.extract.api_extractor - ApiExtractor - _make_request - 73 - WARNING - Server error (500). Retrying after 5 seconds...
+2025-05-17 10:35:10 - src.extract.api_extractor - ApiExtractor - _make_request - 70 - ERROR - HTTP error during GET request to https://api.example.com/v1/failed_endpoint: 500 - {"error": "Internal Server Error"}
+2025-05-17 10:35:10 - src.extract.api_extractor - ApiExtractor - _make_request - 80 - ERROR - Failed to get a successful response from https://api.example.com/v1/failed_endpoint after 3 attempts.
